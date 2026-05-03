@@ -1,0 +1,104 @@
+/* ═══════════════════════════════════════════════════════════════════
+   AquaLens — base.css
+   Shared CSS variables, reset, and typography tokens
+   Used by: landing.css, dashboard.css
+═══════════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ─────────────────────────────────────────────── */
+:root {
+  /* Colors */
+  --bg:       #050d1a;
+  --abyss:    #020810;
+  --ocean:    #0a1628;
+  --surface:  #0a1628;
+  --panel:    #0d1e35;
+  --card:     #102038;
+  --dark:     #1a2a3a;
+
+  --teal:     #00c9a7;
+  --teal2:    #00e5c0;
+  --blue:     #0ea5e9;
+  --gold:     #f59e0b;
+  --red:      #ef4444;
+  --green:    #22c55e;
+  --white:    #e8f4fd;
+  --muted:    #6b9ab8;
+
+  --border:         rgba(0, 201, 167, 0.14);
+  --glass:          rgba(0, 201, 167, 0.06);
+  --glass-border:   rgba(0, 201, 167, 0.18);
+
+  /* Typography */
+  --font-ar:    'Tajawal', sans-serif;
+  --font-en:    'Syne', sans-serif;
+  --font-mono:  'IBM Plex Mono', monospace;
+
+  /* Spacing */
+  --gap-xs:  0.25rem;
+  --gap-sm:  0.5rem;
+  --gap-md:  1rem;
+  --gap-lg:  2rem;
+  --gap-xl:  4rem;
+
+  /* Radius */
+  --r-sm:  6px;
+  --r-md:  10px;
+  --r-lg:  16px;
+  --r-xl:  20px;
+
+  /* Transitions */
+  --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Reset ──────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--bg);
+  color: var(--white);
+  font-family: var(--font-ar);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+img, svg { display: block; max-width: 100%; }
+button { cursor: pointer; font-family: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* ── Animations ─────────────────────────────────────────────────── */
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.8); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeSlideDown {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes shimmer {
+  0%   { background-position: 0% center; }
+  100% { background-position: 200% center; }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(-6px); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

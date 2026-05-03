@@ -1,0 +1,1632 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>AquaLens — لوحة التحكم</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   RESET & DESIGN TOKENS
+═══════════════════════════════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:      #050d1a;
+  --surface: #0a1628;
+  --panel:   #0d1e35;
+  --card:    #102038;
+  --border:  rgba(0,201,167,0.14);
+  --teal:    #00c9a7;
+  --teal2:   #00e5c0;
+  --blue:    #0ea5e9;
+  --gold:    #f59e0b;
+  --red:     #ef4444;
+  --green:   #22c55e;
+  --white:   #e8f4fd;
+  --muted:   #6b9ab8;
+  --dark:    #1a2a3a;
+  --drawer-h: 72vh;
+}
+
+html,body{
+  height:100%;
+  height:100dvh;
+  overflow:hidden;
+  font-family:'Tajawal',sans-serif;
+  background:var(--bg);
+  color:var(--white);
+  font-size:14px;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   DESKTOP LAYOUT — 3-column grid
+═══════════════════════════════════════════════════════════════════════ */
+.app{
+  display:grid;
+  grid-template-rows:52px 1fr;
+  grid-template-columns:260px 1fr 300px;
+  height:100dvh;
+  gap:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   TOP BAR
+═══════════════════════════════════════════════════════════════════════ */
+.topbar{
+  grid-column:1/-1;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  padding:0 1.2rem;
+  gap:1rem;
+  z-index:300;
+}
+.logo{
+  display:flex;
+  align-items:center;
+  gap:0.5rem;
+  font-family:'Syne',sans-serif;
+  font-size:1.2rem;
+  font-weight:800;
+  color:var(--white);
+  text-decoration:none;
+  flex-shrink:0;
+}
+.logo-icon{
+  width:28px;height:28px;
+  background:linear-gradient(135deg,var(--teal),var(--blue));
+  border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;
+  box-shadow:0 0 12px rgba(0,201,167,0.35);
+}
+.logo span{color:var(--teal)}
+.topbar-divider{width:1px;height:24px;background:var(--border);flex-shrink:0}
+.topbar-status{
+  display:flex;align-items:center;gap:0.4rem;
+  font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--teal);
+  white-space:nowrap;
+}
+.status-dot{
+  width:6px;height:6px;background:var(--teal);border-radius:50%;
+  animation:pulse 2s infinite;flex-shrink:0;
+}
+.topbar-info{
+  font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  flex:1;min-width:0;
+}
+.topbar-right{margin-right:auto;display:flex;align-items:center;gap:0.6rem;flex-shrink:0}
+.tb-btn{
+  padding:0.3rem 0.85rem;border-radius:6px;
+  font-family:'Tajawal',sans-serif;font-size:0.8rem;font-weight:600;
+  cursor:pointer;transition:all 0.2s;border:1px solid;white-space:nowrap;
+}
+.tb-btn-outline{background:transparent;border-color:var(--border);color:var(--muted)}
+.tb-btn-outline:hover{border-color:var(--teal);color:var(--teal)}
+.tb-btn-primary{background:var(--teal);border-color:var(--teal);color:#050d1a;font-weight:700}
+.tb-btn-primary:hover{background:var(--teal2)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   LEFT SIDEBAR (desktop)
+═══════════════════════════════════════════════════════════════════════ */
+.sidebar{
+  background:var(--surface);
+  border-left:1px solid var(--border);
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  z-index:100;
+}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.panel-section{padding:1rem;border-bottom:1px solid var(--border)}
+.panel-label{
+  font-family:'IBM Plex Mono',monospace;font-size:0.68rem;
+  color:var(--teal);letter-spacing:0.12em;text-transform:uppercase;
+  margin-bottom:0.75rem;display:flex;align-items:center;gap:0.4rem;
+}
+.panel-label::before{content:'//';opacity:0.5}
+
+/* Inputs */
+.inp-group{margin-bottom:0.6rem}
+.inp-label{font-size:0.75rem;color:var(--muted);margin-bottom:0.3rem}
+.inp{
+  width:100%;background:var(--card);border:1px solid var(--border);
+  border-radius:7px;padding:0.5rem 0.7rem;color:var(--white);
+  font-family:'IBM Plex Mono',monospace;font-size:0.8rem;
+  outline:none;transition:border-color 0.2s;
+  -webkit-appearance:none;
+}
+.inp:focus{border-color:var(--teal)}
+.inp-row{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}
+
+/* Toggle switches */
+.toggle-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:0.55rem}
+.toggle-label{font-size:0.78rem;color:var(--white);line-height:1.3}
+.toggle{position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;inset:0;background:var(--dark);border-radius:20px;transition:0.3s}
+.toggle-slider::before{
+  content:'';position:absolute;height:14px;width:14px;
+  left:3px;bottom:3px;background:var(--muted);border-radius:50%;transition:0.3s;
+}
+.toggle input:checked + .toggle-slider{background:rgba(0,201,167,0.2)}
+.toggle input:checked + .toggle-slider::before{transform:translateX(16px);background:var(--teal)}
+
+/* Analyze button */
+.analyze-btn{
+  width:100%;padding:0.75rem;
+  background:linear-gradient(135deg,var(--teal),#009980);
+  border:none;border-radius:9px;color:#050d1a;
+  font-family:'Tajawal',sans-serif;font-size:0.95rem;font-weight:700;
+  cursor:pointer;transition:all 0.3s;
+  box-shadow:0 0 20px rgba(0,201,167,0.2);
+  display:flex;align-items:center;justify-content:center;gap:0.5rem;
+}
+.analyze-btn:hover{transform:translateY(-1px);box-shadow:0 0 35px rgba(0,201,167,0.35)}
+.analyze-btn:active{transform:translateY(0)}
+.analyze-btn:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+
+/* Aquifer chips */
+.aquifer-chips{display:flex;flex-direction:column;gap:0.4rem}
+.aquifer-chip{
+  padding:0.45rem 0.7rem;border-radius:7px;
+  border:1px solid var(--border);background:var(--card);
+  font-size:0.78rem;color:var(--muted);cursor:pointer;
+  transition:all 0.2s;display:flex;align-items:center;gap:0.5rem;
+}
+.aquifer-chip:hover{border-color:var(--teal);color:var(--white)}
+.aquifer-chip.active{border-color:var(--teal);color:var(--teal);background:rgba(0,201,167,0.06)}
+.chip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Well list */
+.well-list{display:flex;flex-direction:column;gap:0.4rem;max-height:160px;overflow-y:auto}
+.well-item{
+  padding:0.4rem 0.6rem;background:var(--card);border-radius:6px;
+  border:1px solid var(--border);cursor:pointer;transition:all 0.2s;
+  display:flex;justify-content:space-between;align-items:center;
+}
+.well-item:hover{border-color:var(--teal)}
+.well-item:active{background:rgba(0,201,167,0.06)}
+.well-name{font-family:'IBM Plex Mono',monospace;font-size:0.72rem;color:var(--white)}
+.well-depth{font-size:0.7rem;color:var(--muted)}
+.well-status{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MAP
+═══════════════════════════════════════════════════════════════════════ */
+.map-container{position:relative;background:var(--bg);overflow:hidden}
+#map{width:100%;height:100%;z-index:1}
+.map-overlay{position:absolute;z-index:400;pointer-events:none}
+
+.map-controls{top:1rem;right:1rem;display:flex;flex-direction:column;gap:0.5rem;pointer-events:all}
+.map-btn{
+  width:34px;height:34px;background:var(--surface);
+  border:1px solid var(--border);border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:0.85rem;transition:all 0.2s;color:var(--muted);
+}
+.map-btn:hover{border-color:var(--teal);color:var(--teal)}
+.map-btn.active{background:rgba(0,201,167,0.1);border-color:var(--teal);color:var(--teal)}
+
+.map-infobar{
+  bottom:0;left:0;right:0;
+  background:linear-gradient(transparent,rgba(5,13,26,0.9));
+  padding:1.5rem 1rem 0.7rem;
+  display:flex;align-items:flex-end;justify-content:space-between;
+  pointer-events:none;
+}
+.map-coords{font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted)}
+.map-layer-badge{display:flex;gap:0.5rem;flex-wrap:wrap;justify-content:flex-end}
+.layer-badge{
+  font-family:'IBM Plex Mono',monospace;font-size:0.65rem;
+  padding:0.2rem 0.5rem;border-radius:4px;
+  background:rgba(0,201,167,0.08);border:1px solid rgba(0,201,167,0.2);color:var(--teal);
+}
+
+/* Loading overlay */
+.loading-overlay{
+  position:absolute;inset:0;background:rgba(5,13,26,0.88);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:500;opacity:0;pointer-events:none;transition:opacity 0.3s;
+}
+.loading-overlay.show{opacity:1;pointer-events:all}
+.loading-ring{
+  width:60px;height:60px;border:2px solid rgba(0,201,167,0.1);
+  border-top-color:var(--teal);border-radius:50%;
+  animation:spin 0.8s linear infinite;margin-bottom:1rem;
+}
+.loading-text{font-family:'IBM Plex Mono',monospace;font-size:0.8rem;color:var(--teal)}
+.loading-steps{
+  margin-top:1rem;display:flex;flex-direction:column;gap:0.3rem;
+  font-size:0.72rem;color:var(--muted);font-family:'IBM Plex Mono',monospace;text-align:center;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESULTS PANEL (desktop)
+═══════════════════════════════════════════════════════════════════════ */
+.results-panel{
+  background:var(--surface);border-right:1px solid var(--border);
+  overflow-y:auto;display:flex;flex-direction:column;
+}
+.results-panel::-webkit-scrollbar{width:4px}
+.results-panel::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.results-header{
+  padding:1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;background:var(--surface);z-index:10;
+}
+.results-title{font-size:0.85rem;font-weight:700;color:var(--white)}
+.results-badge{
+  font-family:'IBM Plex Mono',monospace;font-size:0.65rem;
+  padding:0.15rem 0.5rem;border-radius:4px;
+  background:rgba(0,201,167,0.08);border:1px solid rgba(0,201,167,0.2);color:var(--teal);
+}
+
+/* Empty state */
+.empty-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;padding:2rem;text-align:center;color:var(--muted);gap:0.8rem;
+}
+.empty-icon{font-size:2.5rem;opacity:0.4}
+.empty-text{font-size:0.82rem;line-height:1.7}
+
+/* Result cards */
+.result-section{padding:0.8rem 1rem;border-bottom:1px solid var(--border)}
+
+/* Aquifer result */
+.aquifer-result{
+  background:var(--card);border-radius:10px;padding:1rem;
+  border:1px solid var(--teal);position:relative;overflow:hidden;margin-bottom:0.7rem;
+}
+.aquifer-result::before{
+  content:'';position:absolute;top:0;right:0;width:60px;height:60px;
+  background:radial-gradient(circle,rgba(0,201,167,0.15),transparent);
+  border-radius:0 0 0 100%;
+}
+.aq-name-ar{font-size:1rem;font-weight:700;color:var(--teal)}
+.aq-name-en{font-family:'IBM Plex Mono',monospace;font-size:0.7rem;color:var(--muted);margin-top:0.2rem}
+.aq-confidence{margin-top:0.7rem}
+.conf-label{display:flex;justify-content:space-between;font-size:0.72rem;color:var(--muted);margin-bottom:0.4rem}
+.conf-val{color:var(--teal);font-family:'IBM Plex Mono',monospace}
+.conf-bar{height:5px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden}
+.conf-fill{height:100%;background:linear-gradient(90deg,var(--teal),var(--blue));border-radius:3px;transition:width 1.2s ease}
+
+/* Metric grid */
+.metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.7rem}
+.metric-card{background:var(--card);border-radius:8px;padding:0.7rem 0.8rem;border:1px solid var(--border)}
+.metric-label{font-size:0.68rem;color:var(--muted);margin-bottom:0.3rem}
+.metric-val{font-family:'IBM Plex Mono',monospace;font-size:1.05rem;font-weight:500;color:var(--white)}
+.metric-val.teal{color:var(--teal)}
+.metric-val.gold{color:var(--gold)}
+.metric-val.red{color:var(--red)}
+.metric-sub{font-size:0.65rem;color:var(--muted);margin-top:0.15rem}
+
+/* Depth range bar */
+.depth-range{background:var(--card);border-radius:8px;padding:0.8rem;border:1px solid var(--border);margin-bottom:0.7rem}
+.depth-range-label{font-size:0.72rem;color:var(--muted);margin-bottom:0.6rem}
+.depth-track{position:relative;height:8px;background:rgba(255,255,255,0.07);border-radius:4px;margin:0 0.5rem}
+.depth-fill{position:absolute;top:0;height:100%;background:linear-gradient(90deg,var(--blue),var(--teal));border-radius:4px;transition:all 1s ease}
+.depth-marker{position:absolute;top:-4px;width:16px;height:16px;background:var(--teal);border-radius:50%;transform:translateX(-50%);border:2px solid var(--bg);transition:left 1s ease}
+.depth-labels{display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:var(--muted);margin-top:0.5rem}
+
+/* Risk alert */
+.risk-alert{border-radius:8px;padding:0.6rem 0.8rem;font-size:0.78rem;margin-bottom:0.7rem;display:flex;gap:0.5rem;align-items:flex-start;line-height:1.5}
+.risk-low{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);color:#86efac}
+.risk-med{background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);color:#fcd34d}
+.risk-high{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.2);color:#fca5a5}
+
+/* Spec table */
+.spec-table{width:100%;border-collapse:collapse;font-size:0.78rem}
+.spec-table tr{border-bottom:1px solid var(--border)}
+.spec-table tr:last-child{border:none}
+.spec-table td{padding:0.45rem 0.3rem;color:var(--muted)}
+.spec-table td:first-child{color:var(--white);font-weight:500;width:45%}
+.spec-table td:last-child{text-align:left;font-family:'IBM Plex Mono',monospace;font-size:0.75rem;color:var(--teal)}
+
+/* GRACE chart */
+.grace-chart-wrap{background:var(--card);border-radius:8px;padding:0.8rem;border:1px solid var(--border);margin-bottom:0.7rem}
+.grace-chart-label{font-size:0.72rem;color:var(--muted);margin-bottom:0.6rem}
+
+/* PDF btn */
+.pdf-btn{
+  width:100%;padding:0.65rem;border:1px solid rgba(245,158,11,0.3);
+  border-radius:8px;background:rgba(245,158,11,0.06);color:var(--gold);
+  font-family:'Tajawal',sans-serif;font-size:0.85rem;font-weight:600;
+  cursor:pointer;transition:all 0.2s;display:flex;align-items:center;justify-content:center;gap:0.5rem;
+}
+.pdf-btn:hover{background:rgba(245,158,11,0.12);border-color:var(--gold)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   MOBILE COMPONENTS
+═══════════════════════════════════════════════════════════════════════ */
+
+/* Bottom navigation bar */
+.bottom-nav{
+  display:none;
+  position:fixed;
+  bottom:0;left:0;right:0;
+  height:60px;
+  height:calc(60px + env(safe-area-inset-bottom));
+  padding-bottom:env(safe-area-inset-bottom);
+  background:var(--surface);
+  border-top:1px solid var(--border);
+  z-index:400;
+  flex-direction:row;
+}
+.bottom-tab{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--muted);font-size:0.68rem;gap:3px;
+  transition:color 0.2s;font-family:'Tajawal',sans-serif;font-weight:500;
+  border:none;background:transparent;padding:0;
+}
+.bottom-tab.active{color:var(--teal)}
+.bottom-tab.active .tab-icon{transform:scale(1.1)}
+.tab-icon{font-size:1.25rem;line-height:1;transition:transform 0.2s}
+
+/* Mobile analyze FAB */
+.map-fab{
+  display:none;
+  position:fixed;
+  bottom:72px;
+  left:50%;transform:translateX(-50%);
+  z-index:350;
+  padding:0.75rem 1.8rem;
+  background:linear-gradient(135deg,var(--teal),#009980);
+  border:none;border-radius:28px;
+  color:#050d1a;
+  font-family:'Tajawal',sans-serif;font-size:0.92rem;font-weight:700;
+  cursor:pointer;white-space:nowrap;
+  box-shadow:0 4px 24px rgba(0,201,167,0.45);
+  align-items:center;gap:0.45rem;
+  transition:all 0.2s;
+}
+.map-fab:active{transform:translateX(-50%) scale(0.96)}
+
+/* Backdrop */
+.backdrop{
+  display:none;
+  position:fixed;inset:0;
+  background:rgba(2,8,16,0.75);
+  z-index:360;
+  opacity:0;transition:opacity 0.3s;
+  bottom:60px;
+}
+.backdrop.visible{display:block}
+.backdrop.show{opacity:1}
+
+/* Mobile drawer (shared styles) */
+.mobile-drawer{
+  position:fixed;
+  bottom:60px;
+  bottom:calc(60px + env(safe-area-inset-bottom));
+  left:0;right:0;
+  height:var(--drawer-h);
+  background:var(--surface);
+  border-radius:18px 18px 0 0;
+  border-top:1px solid var(--border);
+  z-index:380;
+  transform:translateY(100%);
+  transition:transform 0.38s cubic-bezier(0.32,0.72,0,1);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+.mobile-drawer.open{transform:translateY(0)}
+
+.drawer-handle{
+  display:flex;justify-content:center;
+  padding:0.7rem;flex-shrink:0;cursor:pointer;
+}
+.drawer-handle::after{
+  content:'';width:44px;height:4px;
+  background:rgba(255,255,255,0.15);border-radius:2px;
+}
+.drawer-scroll{overflow-y:auto;flex:1;padding-bottom:1rem}
+.drawer-scroll::-webkit-scrollbar{width:3px}
+.drawer-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+.drawer-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1rem 0.75rem;flex-shrink:0;
+}
+.drawer-title{font-size:0.9rem;font-weight:700;color:var(--white)}
+.drawer-close{
+  width:28px;height:28px;border-radius:50%;
+  background:var(--card);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:0.8rem;color:var(--muted);
+  flex-shrink:0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   ANIMATIONS
+═══════════════════════════════════════════════════════════════════════ */
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.8)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.4s ease both}
+
+/* Leaflet popup */
+.leaflet-popup-content-wrapper{background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.4);color:var(--white)}
+.leaflet-popup-tip{background:var(--panel)}
+.leaflet-popup-content{font-family:'Tajawal',sans-serif;font-size:0.8rem;margin:0.6rem 0.8rem}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   RESPONSIVE — MOBILE (≤ 768px)
+═══════════════════════════════════════════════════════════════════════ */
+@media (max-width:768px){
+
+  /* Override grid — single column, map fills all */
+  .app{
+    grid-template-rows:48px 1fr;
+    grid-template-columns:1fr;
+    height:100dvh;
+  }
+
+  /* Topbar compact */
+  .topbar{
+    padding:0 0.7rem;
+    gap:0.6rem;
+    height:48px;
+  }
+  .logo{font-size:1rem}
+  .logo-icon{width:24px;height:24px;font-size:0.75rem}
+  .topbar-divider{display:none}
+  .topbar-info{display:none}
+  .topbar-status{display:none}
+  .tb-btn{padding:0.25rem 0.65rem;font-size:0.75rem}
+  /* Hide desktop analyze from topbar — use FAB instead */
+  .tb-analyze-desktop{display:none}
+
+  /* Map fills full row 2 */
+  .map-container{grid-column:1;grid-row:2}
+
+  /* Desktop sidebars hidden — replaced by drawers */
+  .sidebar{display:none}
+  .results-panel{display:none}
+
+  /* Show mobile UI */
+  .bottom-nav{display:flex}
+  .map-fab{display:flex}
+
+  /* Map infobar adjustments */
+  .map-infobar{padding:1rem 0.75rem 0.5rem}
+  .map-coords{font-size:0.65rem}
+  .map-layer-badge{display:none}
+
+  /* Map controls closer to edge */
+  .map-controls{top:0.5rem;right:0.5rem}
+  .map-btn{width:32px;height:32px;font-size:0.8rem}
+}
+
+/* Very small phones */
+@media (max-width:380px){
+  .logo span{display:none}
+  .map-fab{font-size:0.82rem;padding:0.65rem 1.4rem}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       TOP BAR
+  ══════════════════════════════════════════════════════════════════ -->
+  <header class="topbar">
+    <a href="index.html" class="logo">
+      <div class="logo-icon">💧</div>
+      Aqua<span>Lens</span>
+    </a>
+    <div class="topbar-divider"></div>
+    <div class="topbar-status">
+      <span class="status-dot"></span>
+      النظامُ جاهزٌ للعمل
+    </div>
+    <div class="topbar-divider"></div>
+    <div class="topbar-info" id="coordDisplay">انقر على الخريطة لتحديد موقع الحفر</div>
+    <div class="topbar-right">
+      <button class="tb-btn tb-btn-outline" onclick="clearResults()">↺ إعادة الضبط</button>
+      <button class="tb-btn tb-btn-outline" id="langBtn" onclick="toggleLang()">EN</button>
+      <button class="tb-btn tb-btn-primary tb-analyze-desktop" onclick="triggerAnalysis()">🔍 تحليل</button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       DESKTOP LEFT SIDEBAR — إدخال البيانات
+  ══════════════════════════════════════════════════════════════════ -->
+  <aside class="sidebar" id="desktopSidebar">
+
+    <!-- الإحداثيات -->
+    <div class="panel-section">
+      <div class="panel-label">الموقع الجغرافي المحدد</div>
+      <div class="inp-row">
+        <div class="inp-group">
+          <div class="inp-label">خط العرض (شمال)</div>
+          <input class="inp" id="latInput" type="number" step="0.0001"
+            value="15.3544" min="14.8" max="16.0" oninput="updateFromInputs()">
+        </div>
+        <div class="inp-group">
+          <div class="inp-label">خط الطول (شرق)</div>
+          <input class="inp" id="lonInput" type="number" step="0.0001"
+            value="44.2067" min="43.5" max="44.8" oninput="updateFromInputs()">
+        </div>
+      </div>
+      <div class="inp-group">
+        <div class="inp-label">سنة التحليل</div>
+        <input class="inp" type="number" value="2026" min="2024" max="2035" id="yearInput">
+      </div>
+    </div>
+
+    <!-- معاملات النموذج -->
+    <div class="panel-section">
+      <div class="panel-label">معاملات النموذج</div>
+      <div class="toggle-row">
+        <span class="toggle-label">تصحيح الاستنزاف (GRACE-FO)</span>
+        <label class="toggle"><input type="checkbox" checked id="graceToggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">القيود الجيولوجية</span>
+        <label class="toggle"><input type="checkbox" checked id="geoToggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">تقييم التكوينات الجيولوجية</span>
+        <label class="toggle"><input type="checkbox" checked id="feToggle"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">نطاق اللايقين</span>
+        <label class="toggle"><input type="checkbox" checked id="uncToggle"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <!-- الطبقات المائية -->
+    <div class="panel-section">
+      <div class="panel-label">الطبقات المائية</div>
+      <div class="aquifer-chips">
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'Q')">
+          <span class="chip-dot" style="background:#22c55e"></span>رباعية — Quaternary Alluvial
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'V')">
+          <span class="chip-dot" style="background:#0ea5e9"></span>بركانية — Tertiary Volcanic
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'T')">
+          <span class="chip-dot" style="background:#00c9a7"></span>توائلي — Tawilah Sandstone
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'A')">
+          <span class="chip-dot" style="background:#f59e0b"></span>عمران — Amran Limestone
+        </div>
+      </div>
+    </div>
+
+    <!-- الآبار المرجعية -->
+    <div class="panel-section">
+      <div class="panel-label">الآبار المرجعية (نماذج)</div>
+      <div class="well-list">
+        <div class="well-item" onclick="selectWell(15.42,44.18,'SA-001')">
+          <span class="well-name">SA-001</span>
+          <span class="well-depth">٣٢٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWell(15.31,44.23,'SA-014')">
+          <span class="well-name">SA-014</span>
+          <span class="well-depth">٤٥٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWell(15.38,44.31,'SA-027')">
+          <span class="well-name">SA-027</span>
+          <span class="well-depth">٢١٠ م</span>
+          <span class="well-status" style="background:#f59e0b"></span>
+        </div>
+        <div class="well-item" onclick="selectWell(15.25,44.15,'SA-033')">
+          <span class="well-name">SA-033</span>
+          <span class="well-depth">٦٨٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWell(15.50,44.22,'SA-041')">
+          <span class="well-name">SA-041 ⚠</span>
+          <span class="well-depth">بئرٌ جافة</span>
+          <span class="well-status" style="background:#ef4444"></span>
+        </div>
+        <div class="well-item" onclick="selectWell(15.35,44.40,'SA-058')">
+          <span class="well-name">SA-058</span>
+          <span class="well-depth">٣٨٥ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- زر التحليل -->
+    <div class="panel-section" style="border:none">
+      <button class="analyze-btn" id="analyzeBtn" onclick="triggerAnalysis()">
+        <span>🔍</span> تحليل الموقع بتقنية الذكاء الاصطناعي
+      </button>
+    </div>
+  </aside>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       MAP
+  ══════════════════════════════════════════════════════════════════ -->
+  <main class="map-container">
+    <div id="map"></div>
+
+    <!-- أزرار التحكم بالطبقات -->
+    <div class="map-overlay map-controls">
+      <div class="map-btn active" title="طبقة الصدوع" onclick="toggleLayer('faults',this)">⚡</div>
+      <div class="map-btn active" title="بيانات GRACE-FO" onclick="toggleLayer('grace',this)">🛰️</div>
+      <div class="map-btn active" title="طبقة الآبار" onclick="toggleLayer('wells',this)">💧</div>
+      <div class="map-btn" title="حدود التوائلي" onclick="toggleLayer('tawilah',this)">🗺️</div>
+    </div>
+
+    <!-- شريط معلومات الخريطة -->
+    <div class="map-overlay map-infobar">
+      <div class="map-coords" id="mapCoords">15.3544°N · 44.2067°E · ارتفاع ~٢٢٥٠م</div>
+      <div class="map-layer-badge">
+        <span class="layer-badge">GRACE-FO ✓</span>
+        <span class="layer-badge">Sentinel-2 ✓</span>
+        <span class="layer-badge">SRTM ✓</span>
+      </div>
+    </div>
+
+    <!-- شاشة التحميل -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="loading-ring"></div>
+      <div class="loading-text" id="loadingText">جارٍ تحليل الموقع المحدد...</div>
+      <div class="loading-steps" id="loadingSteps"></div>
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       DESKTOP RESULTS PANEL
+  ══════════════════════════════════════════════════════════════════ -->
+  <aside class="results-panel" id="desktopResults">
+    <div class="results-header">
+      <span class="results-title">نتائج التحليل</span>
+      <span class="results-badge" id="resultsBadge">في انتظار تحديد الموقع</span>
+    </div>
+    <!-- Results content injected here — same as mobile -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">🎯</div>
+      <div class="empty-text">
+        حدّد موقعاً على الخريطة،<br>
+        ثم انقر على <strong style="color:var(--teal)">«تحليل الموقع»</strong><br>
+        <span style="font-size:0.75rem;opacity:0.6;margin-top:0.4rem;display:block">
+          Select a location on the map<br>then press Analyze
+        </span>
+      </div>
+    </div>
+    <div id="resultsContent" style="display:none">
+      <!-- تصنيف الطبقة المائية -->
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">تصنيف الطبقة المائية</div>
+        <div class="aquifer-result">
+          <div class="aq-name-ar" id="aqNameAr">—</div>
+          <div class="aq-name-en" id="aqNameEn">—</div>
+          <div class="aq-confidence">
+            <div class="conf-label">
+              <span>مستوى الثقة</span>
+              <span class="conf-val" id="confVal">—%</span>
+            </div>
+            <div class="conf-bar"><div class="conf-fill" id="confFill" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="risk-alert" id="riskAlert"></div>
+      </div>
+      <!-- تقدير العمق -->
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">تقدير عمق المياه لعام ٢٠٢٦</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">العمق المتوقع</div>
+            <div class="metric-val teal" id="depthMain">—</div>
+            <div class="metric-sub">P50 — الوسيط الاحتمالي</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">معدل الاستنزاف</div>
+            <div class="metric-val red" id="depletionRate">—</div>
+            <div class="metric-sub">م/سنة (GRACE-FO)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">الإنتاجية التقديرية</div>
+            <div class="metric-val gold" id="yieldVal">—</div>
+            <div class="metric-sub">لتر/ثانية (تقدير أوّلي)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">التكلفة التقديرية</div>
+            <div class="metric-val" id="costVal">—</div>
+            <div class="metric-sub">دولار أمريكي</div>
+          </div>
+        </div>
+        <div class="depth-range" id="depthRangeCard">
+          <div class="depth-range-label">نطاق اللايقين في تقدير العمق</div>
+          <div class="depth-track">
+            <div class="depth-fill" id="rangeFill" style="left:10%;width:70%"></div>
+            <div class="depth-marker" id="rangeMarker" style="left:50%"></div>
+          </div>
+          <div class="depth-labels">
+            <span id="rangeMin">—</span>
+            <span style="color:var(--teal)" id="rangeMid">— م (P50)</span>
+            <span id="rangeMax">—</span>
+          </div>
+        </div>
+      </div>
+      <!-- مواصفات الحفر -->
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">مواصفات الحفر</div>
+        <table class="spec-table" id="specTable"></table>
+      </div>
+      <!-- مخطط استنزاف GRACE -->
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">استنزاف المياه GRACE-FO (٢٠٠٣–٢٠٢٦)</div>
+        <div class="grace-chart-wrap">
+          <canvas id="graceChart" height="120"></canvas>
+        </div>
+      </div>
+      <!-- تقييم التكوين -->
+      <div class="result-section" id="feSection">
+        <div class="panel-label" style="margin-bottom:0.6rem">تقييم التكوين (معادلة أرشي)</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">التشبع المائي Sw</div>
+            <div class="metric-val teal" id="swVal">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">المسامية φ</div>
+            <div class="metric-val" id="phiVal">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">سُمك المنطقة المنتجة</div>
+            <div class="metric-val gold" id="payVal">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">مقاومة التكوين Rt</div>
+            <div class="metric-val" id="rtVal">—</div>
+          </div>
+        </div>
+      </div>
+      <!-- تصدير التقرير -->
+      <div class="result-section" style="border:none">
+        <button class="pdf-btn" onclick="exportPDF()">
+          📄 تصدير تقرير PDF رسمي (عربي / English)
+        </button>
+      </div>
+    </div>
+  </aside>
+
+</div><!-- /.app -->
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MOBILE ONLY — BACKDROP
+══════════════════════════════════════════════════════════════════ -->
+<div class="backdrop" id="backdrop" onclick="closeAllDrawers()"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MOBILE ONLY — FLOATING ANALYZE BUTTON
+══════════════════════════════════════════════════════════════════ -->
+<button class="map-fab" id="mapFab" onclick="triggerAnalysis()">
+  🔍 تحليل الموقع
+</button>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MOBILE ONLY — DRAWER: الإدخال
+══════════════════════════════════════════════════════════════════ -->
+<div class="mobile-drawer" id="inputDrawer">
+  <div class="drawer-handle" onclick="closeDrawer('inputDrawer')"></div>
+  <div class="drawer-header">
+    <span class="drawer-title">// بيانات الإدخال</span>
+    <div class="drawer-close" onclick="closeDrawer('inputDrawer')">✕</div>
+  </div>
+  <div class="drawer-scroll">
+
+    <div class="panel-section">
+      <div class="panel-label">الموقع الجغرافي</div>
+      <div class="inp-row">
+        <div class="inp-group">
+          <div class="inp-label">خط العرض (شمال)</div>
+          <input class="inp" id="latInputM" type="number" step="0.0001"
+            value="15.3544" min="14.8" max="16.0" oninput="updateFromInputsMobile()">
+        </div>
+        <div class="inp-group">
+          <div class="inp-label">خط الطول (شرق)</div>
+          <input class="inp" id="lonInputM" type="number" step="0.0001"
+            value="44.2067" min="43.5" max="44.8" oninput="updateFromInputsMobile()">
+        </div>
+      </div>
+      <div class="inp-group">
+        <div class="inp-label">سنة التحليل</div>
+        <input class="inp" type="number" value="2026" min="2024" max="2035" id="yearInputM">
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">معاملات النموذج</div>
+      <div class="toggle-row">
+        <span class="toggle-label">تصحيح الاستنزاف (GRACE-FO)</span>
+        <label class="toggle"><input type="checkbox" checked id="graceToggleM"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">القيود الجيولوجية</span>
+        <label class="toggle"><input type="checkbox" checked id="geoToggleM"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">تقييم التكوينات الجيولوجية</span>
+        <label class="toggle"><input type="checkbox" checked id="feToggleM"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">نطاق اللايقين</span>
+        <label class="toggle"><input type="checkbox" checked id="uncToggleM"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">الطبقات المائية</div>
+      <div class="aquifer-chips">
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'Q')">
+          <span class="chip-dot" style="background:#22c55e"></span>رباعية — Quaternary
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'V')">
+          <span class="chip-dot" style="background:#0ea5e9"></span>بركانية — Volcanic
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'T')">
+          <span class="chip-dot" style="background:#00c9a7"></span>توائلي — Tawilah
+        </div>
+        <div class="aquifer-chip active" onclick="selectAquifer(this,'A')">
+          <span class="chip-dot" style="background:#f59e0b"></span>عمران — Amran
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-label">الآبار المرجعية</div>
+      <div class="well-list">
+        <div class="well-item" onclick="selectWellMobile(15.42,44.18,'SA-001')">
+          <span class="well-name">SA-001</span><span class="well-depth">٣٢٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWellMobile(15.31,44.23,'SA-014')">
+          <span class="well-name">SA-014</span><span class="well-depth">٤٥٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWellMobile(15.38,44.31,'SA-027')">
+          <span class="well-name">SA-027</span><span class="well-depth">٢١٠ م</span>
+          <span class="well-status" style="background:#f59e0b"></span>
+        </div>
+        <div class="well-item" onclick="selectWellMobile(15.25,44.15,'SA-033')">
+          <span class="well-name">SA-033</span><span class="well-depth">٦٨٠ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+        <div class="well-item" onclick="selectWellMobile(15.50,44.22,'SA-041')">
+          <span class="well-name">SA-041 ⚠</span><span class="well-depth">بئرٌ جافة</span>
+          <span class="well-status" style="background:#ef4444"></span>
+        </div>
+        <div class="well-item" onclick="selectWellMobile(15.35,44.40,'SA-058')">
+          <span class="well-name">SA-058</span><span class="well-depth">٣٨٥ م</span>
+          <span class="well-status" style="background:#22c55e"></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel-section" style="border:none">
+      <button class="analyze-btn" id="analyzeBtnM" onclick="triggerAnalysisMobile()">
+        <span>🔍</span> تحليل الموقع بتقنية الذكاء الاصطناعي
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MOBILE ONLY — DRAWER: النتائج
+══════════════════════════════════════════════════════════════════ -->
+<div class="mobile-drawer" id="resultsDrawer">
+  <div class="drawer-handle" onclick="closeDrawer('resultsDrawer')"></div>
+  <div class="drawer-header">
+    <span class="drawer-title">// نتائج التحليل</span>
+    <div class="drawer-close" onclick="closeDrawer('resultsDrawer')">✕</div>
+  </div>
+  <div class="drawer-scroll">
+
+    <div style="padding:0 1rem 0.5rem">
+      <span class="results-badge" id="resultsBadgeMobile">في انتظار تحديد الموقع</span>
+    </div>
+
+    <div class="empty-state" id="emptyStateMobile" style="padding:2rem 1rem">
+      <div class="empty-icon">🎯</div>
+      <div class="empty-text">
+        حدّد موقعاً على الخريطة، ثم<br>انقر على <strong style="color:var(--teal)">«تحليل الموقع»</strong>
+      </div>
+    </div>
+
+    <div id="resultsContentMobile" style="display:none">
+
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">تصنيف الطبقة المائية</div>
+        <div class="aquifer-result">
+          <div class="aq-name-ar" id="aqNameArM">—</div>
+          <div class="aq-name-en" id="aqNameEnM">—</div>
+          <div class="aq-confidence">
+            <div class="conf-label">
+              <span>مستوى الثقة</span>
+              <span class="conf-val" id="confValM">—%</span>
+            </div>
+            <div class="conf-bar"><div class="conf-fill" id="confFillM" style="width:0%"></div></div>
+          </div>
+        </div>
+        <div class="risk-alert" id="riskAlertM"></div>
+      </div>
+
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">تقدير عمق المياه ٢٠٢٦</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">العمق المتوقع</div>
+            <div class="metric-val teal" id="depthMainM">—</div>
+            <div class="metric-sub">P50 — الوسيط الاحتمالي</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">معدل الاستنزاف</div>
+            <div class="metric-val red" id="depletionRateM">—</div>
+            <div class="metric-sub">م/سنة (GRACE-FO)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">الإنتاجية التقديرية</div>
+            <div class="metric-val gold" id="yieldValM">—</div>
+            <div class="metric-sub">لتر/ثانية (أوّلي)</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">التكلفة التقديرية</div>
+            <div class="metric-val" id="costValM">—</div>
+            <div class="metric-sub">دولار أمريكي</div>
+          </div>
+        </div>
+        <div class="depth-range">
+          <div class="depth-range-label">نطاق اللايقين في تقدير العمق</div>
+          <div class="depth-track">
+            <div class="depth-fill" id="rangeFillM" style="left:10%;width:70%"></div>
+            <div class="depth-marker" id="rangeMarkerM" style="left:50%"></div>
+          </div>
+          <div class="depth-labels">
+            <span id="rangeMinM">—</span>
+            <span style="color:var(--teal)" id="rangeMidM">— م (P50)</span>
+            <span id="rangeMaxM">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">مواصفات الحفر</div>
+        <table class="spec-table" id="specTableM"></table>
+      </div>
+
+      <div class="result-section">
+        <div class="panel-label" style="margin-bottom:0.6rem">استنزاف المياه GRACE-FO</div>
+        <div class="grace-chart-wrap">
+          <canvas id="graceChartM" height="120"></canvas>
+        </div>
+      </div>
+
+      <div class="result-section" id="feSectionM">
+        <div class="panel-label" style="margin-bottom:0.6rem">تقييم التكوين (معادلة أرشي)</div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">التشبع المائي Sw</div>
+            <div class="metric-val teal" id="swValM">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">المسامية φ</div>
+            <div class="metric-val" id="phiValM">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">سُمك المنطقة المنتجة</div>
+            <div class="metric-val gold" id="payValM">—</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">مقاومة التكوين Rt</div>
+            <div class="metric-val" id="rtValM">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="result-section" style="border:none">
+        <button class="pdf-btn" onclick="exportPDF()">
+          📄 تصدير تقرير PDF رسمي (عربي / English)
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     MOBILE ONLY — BOTTOM NAVIGATION
+══════════════════════════════════════════════════════════════════ -->
+<nav class="bottom-nav" id="bottomNav">
+  <button class="bottom-tab active" id="tabMap" onclick="switchTab('map')">
+    <span class="tab-icon">🗺️</span>
+    <span>الخريطة</span>
+  </button>
+  <button class="bottom-tab" id="tabInput" onclick="switchTab('input')">
+    <span class="tab-icon">⚙️</span>
+    <span>الإدخال</span>
+  </button>
+  <button class="bottom-tab" id="tabResults" onclick="switchTab('results')">
+    <span class="tab-icon">📊</span>
+    <span>النتائج</span>
+  </button>
+</nav>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SCRIPTS
+══════════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════════════
+let selectedLat = 15.3544, selectedLon = 44.2067;
+let marker = null, graceChartObj = null, graceChartObjM = null, isArabic = true;
+let layers = { faults:true, grace:true, wells:true, tawilah:false };
+const isMobile = () => window.innerWidth <= 768;
+
+// ══════════════════════════════════════════════════════════════════════
+//  MOBILE DRAWER / TAB LOGIC
+// ══════════════════════════════════════════════════════════════════════
+let activeTab = 'map';
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).classList.add('active');
+
+  if (tab === 'map') {
+    closeAllDrawers();
+    document.getElementById('mapFab').style.display = 'flex';
+  } else if (tab === 'input') {
+    openDrawer('inputDrawer');
+    document.getElementById('mapFab').style.display = 'none';
+  } else if (tab === 'results') {
+    openDrawer('resultsDrawer');
+    document.getElementById('mapFab').style.display = 'none';
+  }
+}
+
+function openDrawer(id) {
+  closeAllDrawers(id);
+  document.getElementById(id).classList.add('open');
+  const bd = document.getElementById('backdrop');
+  bd.classList.add('visible');
+  requestAnimationFrame(() => bd.classList.add('show'));
+}
+
+function closeDrawer(id) {
+  document.getElementById(id).classList.remove('open');
+  const anyOpen = document.querySelector('.mobile-drawer.open');
+  if (!anyOpen) {
+    const bd = document.getElementById('backdrop');
+    bd.classList.remove('show');
+    setTimeout(() => bd.classList.remove('visible'), 300);
+  }
+  // Reset tab to map
+  if (activeTab !== 'map') {
+    activeTab = 'map';
+    document.querySelectorAll('.bottom-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tabMap').classList.add('active');
+    document.getElementById('mapFab').style.display = 'flex';
+  }
+}
+
+function closeAllDrawers(except) {
+  document.querySelectorAll('.mobile-drawer').forEach(d => {
+    if (d.id !== except) d.classList.remove('open');
+  });
+  if (!except) {
+    const bd = document.getElementById('backdrop');
+    bd.classList.remove('show');
+    setTimeout(() => bd.classList.remove('visible'), 300);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  MAP INITIALIZATION
+// ══════════════════════════════════════════════════════════════════════
+const map = L.map('map', {
+  center: [15.35, 44.20],
+  zoom: isMobile() ? 10 : 11,
+  zoomControl: false,
+  attributionControl: false,
+  tap: true,
+});
+
+// Dark tile layer
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  maxZoom:18
+}).addTo(map);
+
+// Zoom control positioned for mobile
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+// Custom marker icon
+const markerIcon = L.divIcon({
+  html:`<div style="width:20px;height:20px;
+    background:radial-gradient(circle,#00c9a7,#009980);
+    border:2px solid #050d1a;border-radius:50%;
+    box-shadow:0 0 0 4px rgba(0,201,167,0.25),0 0 20px rgba(0,201,167,0.4);
+    animation:pulse 2s infinite"></div>`,
+  className:'',iconSize:[20,20],iconAnchor:[10,10]
+});
+
+// Well markers
+const wellData = [
+  {lat:15.42,lon:44.18,id:'SA-001',depth:320,yield:'متوسطة',aq:'V',ok:true},
+  {lat:15.31,lon:44.23,id:'SA-014',depth:450,yield:'عالية',aq:'T',ok:true},
+  {lat:15.38,lon:44.31,id:'SA-027',depth:210,yield:'منخفضة',aq:'Q',ok:true},
+  {lat:15.25,lon:44.15,id:'SA-033',depth:680,yield:'عالية',aq:'T',ok:true},
+  {lat:15.50,lon:44.22,id:'SA-041',depth:null,yield:'جافة',aq:'V',ok:false},
+  {lat:15.35,lon:44.40,id:'SA-058',depth:385,yield:'متوسطة',aq:'T',ok:true},
+  {lat:15.28,lon:44.35,id:'SA-072',depth:290,yield:'منخفضة',aq:'Q',ok:true},
+  {lat:15.44,lon:44.38,id:'SA-089',depth:520,yield:'عالية',aq:'T',ok:true},
+];
+
+const wellLayer = L.layerGroup();
+wellData.forEach(w => {
+  const color = w.ok ? (w.aq==='T'?'#00c9a7':w.aq==='Q'?'#22c55e':'#0ea5e9') : '#ef4444';
+  const wIcon = L.divIcon({
+    html:`<div style="width:10px;height:10px;background:${color};
+      border:1.5px solid #050d1a;border-radius:50%;
+      box-shadow:0 0 6px ${color}55"></div>`,
+    className:'',iconSize:[10,10],iconAnchor:[5,5]
+  });
+  const m = L.marker([w.lat,w.lon],{icon:wIcon});
+  m.bindPopup(`
+    <div style="direction:rtl;min-width:140px">
+      <div style="font-weight:700;color:#00c9a7;margin-bottom:4px">${w.id}</div>
+      <div>العمق: ${w.depth ? w.depth+'م' : 'بئرٌ جافة'}</div>
+      <div>الإنتاجية: ${w.yield}</div>
+      <div>الطبقة: ${{Q:'رباعية',V:'بركانية',T:'توائلي',A:'عمران'}[w.aq]}</div>
+    </div>
+  `);
+  m.addTo(wellLayer);
+});
+wellLayer.addTo(map);
+
+// Fault lines
+const faultLayer = L.layerGroup();
+[[15.20,44.10,15.55,44.45],[15.15,44.30,15.60,44.15],[15.30,44.05,15.48,44.50]].forEach(([y1,x1,y2,x2])=>{
+  L.polyline([[y1,x1],[y2,x2]],{color:'rgba(239,68,68,0.35)',weight:1.5,dashArray:'6,4'}).addTo(faultLayer);
+});
+faultLayer.addTo(map);
+
+// Tawilah boundary
+const tawilahLayer = L.layerGroup();
+L.polyline([[15.35,43.7],[15.35,44.9]],{color:'rgba(245,158,11,0.6)',weight:2,dashArray:'8,4'})
+  .bindPopup('<div style="color:#f59e0b;font-weight:700">حدّ انتشار التوائلي الشمالي<br><span style="font-size:0.75rem;color:#999">شمال خط عرض 15.35° — لا توجد طبقة توائلي</span></div>')
+  .addTo(tawilahLayer);
+
+// GRACE heatmap
+const graceLayer = L.layerGroup();
+[
+  {c:[15.38,44.22],r:4000,color:'#ef4444',op:0.12},
+  {c:[15.45,44.15],r:3000,color:'#f59e0b',op:0.10},
+  {c:[15.28,44.30],r:3500,color:'#f59e0b',op:0.09},
+  {c:[15.20,44.20],r:2500,color:'#22c55e',op:0.08},
+].forEach(z=>{
+  L.circle(z.c,{radius:z.r,color:z.color,fillColor:z.color,fillOpacity:z.op,weight:0}).addTo(graceLayer);
+});
+graceLayer.addTo(map);
+
+// Map click
+map.on('click', e => {
+  selectedLat = +e.latlng.lat.toFixed(4);
+  selectedLon = +e.latlng.lng.toFixed(4);
+  placeMarker(selectedLat, selectedLon);
+  updateCoordDisplay();
+  if (isMobile()) {
+    // Flash FAB to hint user
+    const fab = document.getElementById('mapFab');
+    fab.style.boxShadow = '0 4px 30px rgba(0,201,167,0.7)';
+    setTimeout(() => { fab.style.boxShadow = '0 4px 24px rgba(0,201,167,0.45)'; }, 600);
+  }
+});
+
+function placeMarker(lat, lon) {
+  if (marker) map.removeLayer(marker);
+  marker = L.marker([lat,lon],{icon:markerIcon}).addTo(map);
+  // Sync both desktop and mobile inputs
+  const setVal = (id,v) => { const el=document.getElementById(id); if(el) el.value=v; };
+  setVal('latInput',lat); setVal('lonInput',lon);
+  setVal('latInputM',lat); setVal('lonInputM',lon);
+}
+
+function updateCoordDisplay() {
+  const t = `${selectedLat.toFixed(4)}°N · ${selectedLon.toFixed(4)}°E · تم تحديد الموقع ✓`;
+  document.getElementById('coordDisplay').textContent = t;
+  document.getElementById('mapCoords').textContent =
+    `${selectedLat.toFixed(4)}°N · ${selectedLon.toFixed(4)}°E · ارتفاع ~${Math.round(2150+Math.random()*300)}م`;
+}
+
+map.on('mousemove', e => {
+  if (!marker) {
+    document.getElementById('mapCoords').textContent =
+      `${e.latlng.lat.toFixed(4)}°N · ${e.latlng.lng.toFixed(4)}°E`;
+  }
+});
+
+function updateFromInputs() {
+  selectedLat = +document.getElementById('latInput').value;
+  selectedLon = +document.getElementById('lonInput').value;
+  placeMarker(selectedLat, selectedLon);
+  updateCoordDisplay();
+}
+
+function updateFromInputsMobile() {
+  selectedLat = +document.getElementById('latInputM').value;
+  selectedLon = +document.getElementById('lonInputM').value;
+  placeMarker(selectedLat, selectedLon);
+  updateCoordDisplay();
+}
+
+function selectWell(lat,lon,id) {
+  selectedLat=lat; selectedLon=lon;
+  placeMarker(lat,lon);
+  map.setView([lat,lon],13);
+  updateCoordDisplay();
+}
+
+function selectWellMobile(lat,lon,id) {
+  selectWell(lat,lon,id);
+  closeDrawer('inputDrawer');
+  switchTab('map');
+}
+
+function toggleLayer(name,btn) {
+  layers[name] = !layers[name];
+  btn.classList.toggle('active');
+  const layerMap = {faults:faultLayer,grace:graceLayer,wells:wellLayer,tawilah:tawilahLayer};
+  if(layers[name]) layerMap[name].addTo(map);
+  else map.removeLayer(layerMap[name]);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  AI ANALYSIS ENGINE (SIMULATION)
+// ══════════════════════════════════════════════════════════════════════
+function getAquiferData(lat, lon) {
+  const useGrace = document.getElementById(isMobile()?'graceToggleM':'graceToggle').checked;
+  const useGeo   = document.getElementById(isMobile()?'geoToggleM':'geoToggle').checked;
+  const useFE    = document.getElementById(isMobile()?'feToggleM':'feToggle').checked;
+  const year     = parseInt(document.getElementById(isMobile()?'yearInputM':'yearInput').value) || 2026;
+  const yearDelta= year - 2010;
+
+  const northOfTawilah = lat > 15.35;
+  const nearFault      = (Math.abs(lon-44.2)+Math.abs(lat-15.3)) < 0.15;
+  const inWadi         = lat < 15.28 || (lon > 44.35 && lat < 15.40);
+
+  let aquifer, confBase;
+  if      (inWadi && !northOfTawilah)              { aquifer='Q'; confBase=72; }
+  else if (northOfTawilah && useGeo)               { aquifer='V'; confBase=68; }
+  else if (!northOfTawilah && lon>44.05 && lon<44.5){ aquifer='T'; confBase=76; }
+  else if (nearFault)                              { aquifer='A'; confBase=62; }
+  else                                             { aquifer='V'; confBase=65; }
+
+  const confidence = confBase + Math.round((Math.random()-0.5)*8);
+
+  const baseDepletion = aquifer==='Q'?4.2:aquifer==='V'?6.8:aquifer==='T'?7.3:3.1;
+  const depletionRate = useGrace ? +(baseDepletion+(Math.random()-0.5)*1.2).toFixed(1) : null;
+
+  const baseDepths = {Q:35,V:120,T:220,A:380};
+  const depth    = Math.round(baseDepths[aquifer] + Math.round(Math.random()*40) + (depletionRate?depletionRate*yearDelta:0));
+  const depthMin = Math.round(depth*0.88);
+  const depthMax = Math.round(depth*1.15);
+
+  const yieldMap = {
+    Q:{val:'٢–٥',label:'منخفضة',cost:'$8,000–$15,000'},
+    V:{val:'٥–١٢',label:'متوسطة',cost:'$18,000–$28,000'},
+    T:{val:'٨–٢٠',label:'متوسطة–عالية',cost:'$22,000–$38,000'},
+    A:{val:'٣–٨',label:'منخفضة–متوسطة',cost:'$30,000–$50,000'},
+  };
+
+  let risk, riskLevel;
+  if (northOfTawilah && aquifer==='T' && useGeo) {
+    risk='⚠️ تحذير: الطبقة التوائلية غائبةٌ شمال خط عرض 15.35° — تم التعديل تلقائياً'; riskLevel='high';
+  } else if (aquifer==='A' && !nearFault) {
+    risk='⚠️ تحذير: طبقة عمران الجيرية بعيدةٌ عن الصدوع — إنتاجيةٌ منخفضة محتملة'; riskLevel='med';
+  } else if (depletionRate && depletionRate>7) {
+    risk='🔴 معدل استنزافٍ مرتفع في هذه المنطقة — يُستحسن التوسع نحو الجنوب'; riskLevel='med';
+  } else {
+    risk='✅ الموقع ملائمٌ — لا قيود جيولوجية حرجة'; riskLevel='low';
+  }
+
+  const feData = useFE ? {
+    Sw:+(0.55+Math.random()*0.25).toFixed(2),
+    phi:+(0.08+Math.random()*0.10).toFixed(2),
+    pay:Math.round(15+Math.random()*30)+' م',
+    Rt:Math.round(8+Math.random()*20)+' Ω·m'
+  } : null;
+
+  const drillMethods={Q:'حفر دوراني مباشر',V:'حفر هوائي بمطرقة (DTH)',T:'حفر دوراني بطين حفر',A:'حفر ماسي مع دعم أسمنتي'};
+  const casingMap={
+    Q:`سطحي حتى ٢٠م | منقّب ${Math.round(depthMin*0.6)}–${depthMin}م`,
+    V:`سطحي حتى ٤٠م | مُبطّن ٤٠–${Math.round(depth*0.5)}م | منقّب ${Math.round(depth*0.5)}–${depth}م`,
+    T:`سطحي حتى ٦٠م | مُبطّن ٦٠–${Math.round(depth*0.6)}م | منقّب ${Math.round(depth*0.6)}–${depth}م`,
+    A:`سطحي حتى ٨٠م | مُبطّن كامل حتى ${depth}م`,
+  };
+
+  const graceYears = Array.from({length:24},(_,i)=>2003+i);
+  const graceTWS   = graceYears.map(y=>{
+    const trend = -(depletionRate||5)*(y-2003)*0.12;
+    return +(trend+(Math.random()-0.5)*1.8).toFixed(2);
+  });
+
+  return {
+    aquifer, confidence, depletionRate, depth, depthMin, depthMax,
+    yield:yieldMap[aquifer], risk, riskLevel, feData,
+    specs:{
+      method:drillMethods[aquifer],
+      diameter:aquifer==='Q'?'٦ إنش':'٨ إنش',
+      casing:casingMap[aquifer],
+      pump:`غاطس ${depth<300?'١٥':'٢٢'} كيلوواط`,
+      duration:`${Math.round(depth/35)+3}–${Math.round(depth/28)+5} أسابيع`,
+      cost:yieldMap[aquifer].cost,
+    },
+    graceData:{years:graceYears,tws:graceTWS}
+  };
+}
+
+const AQ_LABELS = {
+  Q:{ar:'رباعية جوفانية',      en:'Quaternary Alluvial',           color:'#22c55e'},
+  V:{ar:'بركانية ثلاثية',      en:'Tertiary Volcanic',             color:'#0ea5e9'},
+  T:{ar:'حجر رملي توائلي',    en:'Cretaceous Tawilah Sandstone',  color:'#00c9a7'},
+  A:{ar:'جيري عمراني',         en:'Jurassic Amran Limestone',      color:'#f59e0b'},
+};
+
+// ══════════════════════════════════════════════════════════════════════
+//  TRIGGER ANALYSIS
+// ══════════════════════════════════════════════════════════════════════
+function triggerAnalysis() {
+  const btn = document.getElementById('analyzeBtn');
+  if(btn) btn.disabled = true;
+  runAnalysis();
+}
+
+function triggerAnalysisMobile() {
+  const btn = document.getElementById('analyzeBtnM');
+  if(btn) btn.disabled = true;
+  closeDrawer('inputDrawer');
+  switchTab('map');
+  runAnalysis();
+}
+
+function runAnalysis() {
+  const overlay = document.getElementById('loadingOverlay');
+  overlay.classList.add('show');
+
+  const steps = [
+    '⚡ استخراج السمات الجيولوجية...',
+    '🛰️ تحميل بيانات GRACE-FO...',
+    '🌍 معالجة مرئيات Sentinel-2...',
+    '🤖 تشغيل نموذج XGBoost...',
+    '⚗️ تطبيق معادلة أرشي...',
+    '⚙️ تطبيق القيود الجيولوجية...',
+    '📊 إنشاء التقرير...',
+  ];
+
+  const stepsEl = document.getElementById('loadingSteps');
+  stepsEl.innerHTML = '';
+  let i = 0;
+
+  const interval = setInterval(() => {
+    if (i < steps.length) {
+      const s = document.createElement('div');
+      s.textContent = steps[i];
+      s.style.animation = 'fadeIn 0.3s ease';
+      stepsEl.appendChild(s);
+      document.getElementById('loadingText').textContent = steps[i];
+      i++;
+    }
+  }, 280);
+
+  setTimeout(() => {
+    clearInterval(interval);
+    overlay.classList.remove('show');
+    ['analyzeBtn','analyzeBtnM'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
+    const data = getAquiferData(selectedLat, selectedLon);
+    displayResults(data);
+    // On mobile, open results drawer after analysis
+    if (isMobile()) {
+      setTimeout(() => {
+        switchTab('results');
+      }, 300);
+    }
+  }, 2200);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  DISPLAY RESULTS
+// ══════════════════════════════════════════════════════════════════════
+function displayResults(d) {
+  const aq = AQ_LABELS[d.aquifer];
+  const statusText = 'اكتمل التحليل ✓';
+
+  // Desktop results
+  document.getElementById('emptyState').style.display = 'none';
+  const rc = document.getElementById('resultsContent');
+  rc.style.display = 'block';
+  rc.classList.add('fade-in');
+  document.getElementById('resultsBadge').textContent = statusText;
+
+  fillResultsPanel(d, aq, '', graceChartObj, (chart) => { graceChartObj = chart; });
+
+  // Mobile results
+  document.getElementById('emptyStateMobile').style.display = 'none';
+  const rcM = document.getElementById('resultsContentMobile');
+  rcM.style.display = 'block';
+  rcM.classList.add('fade-in');
+  document.getElementById('resultsBadgeMobile').textContent = statusText;
+
+  fillResultsPanel(d, aq, 'M', graceChartObjM, (chart) => { graceChartObjM = chart; });
+
+  // Update map marker
+  if (marker) {
+    map.removeLayer(marker);
+    const c = aq.color;
+    marker = L.marker([selectedLat,selectedLon],{icon:L.divIcon({
+      html:`<div style="width:22px;height:22px;
+        background:${c};border:3px solid #050d1a;border-radius:50%;
+        box-shadow:0 0 0 5px ${c}44,0 0 25px ${c}66"></div>`,
+      className:'',iconSize:[22,22],iconAnchor:[11,11]
+    })}).addTo(map);
+  }
+}
+
+function fillResultsPanel(d, aq, suffix, chartObj, setChart) {
+  const s = (id) => document.getElementById(id+suffix);
+  if (!s('aqNameAr')) return;
+
+  s('aqNameAr').textContent  = aq.ar;
+  s('aqNameAr').style.color  = aq.color;
+  s('aqNameEn').textContent  = aq.en;
+  s('confVal').textContent   = d.confidence + '%';
+  s('confFill').style.width  = d.confidence + '%';
+  s('confFill').style.background = `linear-gradient(90deg,${aq.color},#0ea5e9)`;
+
+  const riskEl = s('riskAlert');
+  riskEl.className = 'risk-alert ' + {low:'risk-low',med:'risk-med',high:'risk-high'}[d.riskLevel];
+  riskEl.textContent = d.risk;
+
+  s('depthMain').textContent     = d.depth + ' م';
+  s('depletionRate').textContent = d.depletionRate ? '▼ ' + d.depletionRate + ' م/سنة' : 'غير مُفعَّل';
+  s('yieldVal').textContent      = d.yield.val + ' ل/ث';
+  s('costVal').textContent       = '$' + d.yield.cost.split('$')[1].split('–')[0] + 'k';
+
+  const total=1200;
+  const leftPct  = (d.depthMin/total*100).toFixed(1);
+  const widthPct = ((d.depthMax-d.depthMin)/total*100).toFixed(1);
+  const midPct   = (d.depth/total*100).toFixed(1);
+  s('rangeFill').style.left  = leftPct + '%';
+  s('rangeFill').style.width = widthPct + '%';
+  s('rangeMarker').style.left = midPct + '%';
+  s('rangeMin').textContent  = d.depthMin + 'م';
+  s('rangeMid').textContent  = d.depth + ' م (P50)';
+  s('rangeMax').textContent  = d.depthMax + 'م';
+
+  const specs = [
+    ['طريقة الحفر',       d.specs.method],
+    ['قطر البئر',         d.specs.diameter],
+    ['برنامج التغليف',    d.specs.casing],
+    ['المضخة المقترحة',   d.specs.pump],
+    ['مدة الحفر',         d.specs.duration],
+    ['التكلفة التقديرية', d.specs.cost],
+  ];
+  s('specTable').innerHTML = specs.map(([l,v])=>`<tr><td>${l}</td><td>${v}</td></tr>`).join('');
+
+  if (d.feData) {
+    s('swVal').textContent  = (d.feData.Sw*100).toFixed(0)+'%';
+    s('phiVal').textContent = (d.feData.phi*100).toFixed(0)+'%';
+    s('payVal').textContent = d.feData.pay;
+    s('rtVal').textContent  = d.feData.Rt;
+  }
+
+  buildGraceChart(d.graceData, suffix, setChart);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  GRACE CHART
+// ══════════════════════════════════════════════════════════════════════
+function buildGraceChart(data, suffix, setChart) {
+  const canvasId = 'graceChart' + suffix;
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+
+  const existing = suffix === '' ? graceChartObj : graceChartObjM;
+  if (existing) existing.destroy();
+
+  const ctx2 = canvas.getContext('2d');
+  const grad = ctx2.createLinearGradient(0,0,0,120);
+  grad.addColorStop(0,'rgba(239,68,68,0.3)');
+  grad.addColorStop(1,'rgba(239,68,68,0.02)');
+
+  const chart = new Chart(ctx2, {
+    type:'line',
+    data:{
+      labels:data.years,
+      datasets:[{
+        label:'TWS Anomaly (cm)',
+        data:data.tws,
+        borderColor:'#ef4444',
+        backgroundColor:grad,
+        borderWidth:1.5,
+        pointRadius:0,
+        fill:true,
+        tension:0.35,
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.parsed.y.toFixed(2)} cm EWH`}}},
+      scales:{
+        x:{ticks:{color:'#6b9ab8',font:{size:9},maxTicksLimit:6},grid:{color:'rgba(255,255,255,0.04)'}},
+        y:{ticks:{color:'#6b9ab8',font:{size:9}},grid:{color:'rgba(255,255,255,0.04)'},
+           title:{display:true,text:'cm EWH',color:'#6b9ab8',font:{size:9}}}
+      }
+    }
+  });
+  setChart(chart);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  UTILITIES
+// ══════════════════════════════════════════════════════════════════════
+function clearResults() {
+  ['emptyState','emptyStateMobile'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='flex';
+  });
+  ['resultsContent','resultsContentMobile'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.style.display='none';
+  });
+  ['resultsBadge','resultsBadgeMobile'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent='في انتظار تحديد الموقع';
+  });
+  if (marker) { map.removeLayer(marker); marker=null; }
+  document.getElementById('coordDisplay').textContent = 'انقر على الخريطة لتحديد موقع الحفر';
+  placeMarker(15.3544, 44.2067);
+  selectedLat=15.3544; selectedLon=44.2067;
+}
+
+function selectAquifer(el) { el.classList.toggle('active'); }
+
+function toggleLang() {
+  isArabic = !isArabic;
+  document.getElementById('langBtn').textContent = isArabic ? 'EN' : 'ع';
+  document.documentElement.dir = isArabic ? 'rtl' : 'ltr';
+}
+
+function exportPDF() {
+  alert('📄 جارٍ إنشاء التقرير...\n\nفي النسخة الكاملة، سيُصدَر ملف PDF رسمي ثنائي اللغة باستخدام ReportLab.');
+}
+
+// Init
+placeMarker(selectedLat, selectedLon);
+
+// Fix map size after fonts load
+window.addEventListener('load', () => {
+  setTimeout(() => map.invalidateSize(), 200);
+});
+
+// Resize handler
+window.addEventListener('resize', () => {
+  map.invalidateSize();
+});
+</script>
+</body>
+</html>
