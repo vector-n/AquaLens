@@ -537,6 +537,11 @@ html,body{
       النظامُ جاهزٌ للعمل
     </div>
     <div class="topbar-divider"></div>
+    <div class="topbar-status">
+      <span id="apiBadge" style="font-family:'IBM Plex Mono',monospace;font-size:0.68rem;
+        color:#5a8aaa;transition:color 0.3s">⚪ JS Simulation</span>
+    </div>
+    <div class="topbar-divider"></div>
     <div class="topbar-info" id="coordDisplay">انقر على الخريطة لتحديد موقع الحفر</div>
     <div class="topbar-right">
       <button class="tb-btn tb-btn-outline" onclick="clearResults()">↺ إعادة الضبط</button>
@@ -1407,17 +1412,17 @@ function triggerAnalysisMobile() {
   runAnalysis();
 }
 
-function runAnalysis() {
+async function runAnalysis() {
   const overlay = document.getElementById('loadingOverlay');
   overlay.classList.add('show');
 
   const steps = [
+    API_ONLINE ? '📡 الاتصال بـ Python API...' : '🔄 وضع المحاكاة...',
     '⚡ استخراج السمات الجيولوجية...',
     '🛰️ تحميل بيانات GRACE-FO...',
     '🌍 معالجة مرئيات Sentinel-2...',
     '🤖 تشغيل نموذج XGBoost...',
     '⚗️ تطبيق معادلة أرشي...',
-    '⚙️ تطبيق القيود الجيولوجية...',
     '📊 إنشاء التقرير...',
   ];
 
@@ -1436,18 +1441,16 @@ function runAnalysis() {
     }
   }, 280);
 
-  setTimeout(() => {
-    clearInterval(interval);
-    overlay.classList.remove('show');
-    ['analyzeBtn','analyzeBtnM'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
-    const data = getAquiferData(selectedLat, selectedLon);
-    displayResults(data);
-    // On mobile, open results drawer after analysis
-    if (isMobile()) {
-      setTimeout(() => {
-        switchTab('results');
-      }, 300);
-    }
+  // ── استدعاء getAquiferData (async) ──────────────────────────────
+  const data = await getAquiferData(selectedLat, selectedLon);
+
+  clearInterval(interval);
+  overlay.classList.remove('show');
+  ['analyzeBtn','analyzeBtnM'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false;});
+  displayResults(data);
+  if (isMobile()) {
+    setTimeout(() => { switchTab('results'); }, 300);
+  }
   }, 2200);
 }
 

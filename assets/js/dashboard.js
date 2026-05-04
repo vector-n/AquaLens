@@ -197,7 +197,100 @@ function pulseFAB() {
 // ══════════════════════════════════════════════════════════════════════
 //  AI ANALYSIS ENGINE
 // ══════════════════════════════════════════════════════════════════════
-function getAquiferData(lat, lon) {
+// ══════════════════════════════════════════════════════════════════════
+//  API CONFIG
+//  غيّر هذا العنوان عند نشر الـ Backend على سيرفر حقيقي
+// ══════════════════════════════════════════════════════════════════════
+const API_URL = 'http://localhost:8000';
+let   API_ONLINE = false;
+
+// فحص إذا كان الـ API يعمل عند تحميل الصفحة
+async function checkAPIStatus() {
+  try {
+    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      API_ONLINE = true;
+      const badge = document.getElementById('apiBadge');
+      if (badge) {
+        badge.textContent = '🟢 Python API';
+        badge.style.color = 'var(--teal, #00dcb4)';
+      }
+      console.log('✅ AquaLens Python API متصل');
+    }
+  } catch {
+    API_ONLINE = false;
+    console.warn('⚠️  Python API غير متصل — سيعمل وضع المحاكاة');
+  }
+}
+checkAPIStatus();
+
+// ══════════════════════════════════════════════════════════════════════
+//  تحويل استجابة API إلى الشكل الذي يتوقعه fillPanel()
+// ══════════════════════════════════════════════════════════════════════
+function normalizeAPIResponse(r, lat, lon) {
+  const mobile  = AQ.Device.isMobile();
+  const sfx     = mobile ? 'M' : '';
+  const useFE   = document.getElementById('feToggle' + sfx)?.checked ?? true;
+
+  const yieldMap = {
+    low:    { val: '٢–٥',  label: 'منخفضة',       cost: '$8,000–$15,000'  },
+    medium: { val: '٥–١٢', label: 'متوسطة',        cost: '$18,000–$28,000' },
+    high:   { val: '٨–٢٠', label: 'متوسطة–عالية',  cost: '$22,000–$38,000' },
+  };
+
+  const depth    = r.depth_p50_m;
+  const depthMin = r.depth_p10_m;
+  const depthMax = r.depth_p90_m;
+  const yClass   = r.yield_class || 'medium';
+
+  // القيود الجيولوجية → risk
+  let risk = '✅ الموقع ملائمٌ — لا قيود جيولوجية حرجة';
+  let riskLevel = 'low';
+  if (r.constraints && r.constraints.length > 0) {
+    const worst = r.constraints.find(c => c.severity === 'HIGH')
+               || r.constraints.find(c => c.severity === 'MEDIUM')
+               || r.constraints[0];
+    risk      = worst.msg_ar;
+    riskLevel = worst.severity === 'HIGH' ? 'high' : 'med';
+  } else if (r.depletion_rate_m_year > 7) {
+    risk      = '🔴 معدل استنزافٍ مرتفع — يُستحسن التوسع نحو الجنوب';
+    riskLevel = 'med';
+  }
+
+  const fe = r.formation_eval;
+
+  return {
+    aquifer:      r.aquifer,
+    confidence:   r.confidence_pct,
+    depletionRate: r.depletion_rate_m_year,
+    depth, depthMin, depthMax,
+    yield:    yieldMap[yClass] || yieldMap.medium,
+    risk, riskLevel,
+    feData: (useFE && fe && fe.Sw !== null) ? {
+      Sw:  fe.Sw / 100,
+      phi: fe.phi / 100,
+      pay: fe.pay_m + ' م',
+      Rt:  fe.Rt + ' Ω·m',
+    } : null,
+    specs: {
+      method:   r.drilling_specs.method,
+      diameter: r.drilling_specs.dia || (r.aquifer === 'Q' ? '٦ إنش' : '٨ إنش'),
+      casing:   r.drilling_specs.casing,
+      pump:     r.drilling_specs.pump,
+      duration: r.drilling_specs.dur,
+      cost:     r.drilling_specs.cost_usd,
+    },
+    graceData: {
+      years: r.grace_years,
+      tws:   r.grace_tws,
+    },
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  المحاكاة (Fallback) — تعمل عند عدم اتصال API
+// ══════════════════════════════════════════════════════════════════════
+function simulateLocally(lat, lon) {
   const mobile     = AQ.Device.isMobile();
   const sfx        = mobile ? 'M' : '';
   const useGrace   = document.getElementById('graceToggle' + sfx)?.checked ?? true;
@@ -206,98 +299,88 @@ function getAquiferData(lat, lon) {
   const year       = parseInt(document.getElementById('yearInput' + sfx)?.value ?? '2026');
   const yearDelta  = year - 2010;
 
-  // Geological rules
   const northOfTawilah = lat > 15.35;
   const nearFault      = (Math.abs(lon - 44.2) + Math.abs(lat - 15.3)) < 0.15;
   const inWadi         = lat < 15.28 || (lon > 44.35 && lat < 15.40);
 
-  // Aquifer classification
   let aquifer, confBase;
-  if      (inWadi && !northOfTawilah)               { aquifer = 'Q'; confBase = 72; }
-  else if (northOfTawilah && useGeo)                { aquifer = 'V'; confBase = 68; }
+  if      (inWadi && !northOfTawilah)                    { aquifer = 'Q'; confBase = 72; }
+  else if (northOfTawilah && useGeo)                     { aquifer = 'V'; confBase = 68; }
   else if (!northOfTawilah && lon > 44.05 && lon < 44.5) { aquifer = 'T'; confBase = 76; }
-  else if (nearFault)                               { aquifer = 'A'; confBase = 62; }
-  else                                              { aquifer = 'V'; confBase = 65; }
+  else if (nearFault)                                    { aquifer = 'A'; confBase = 62; }
+  else                                                   { aquifer = 'V'; confBase = 65; }
 
-  const confidence   = confBase + Math.round((Math.random() - 0.5) * 8);
+  const confidence    = confBase + Math.round((Math.random() - 0.5) * 8);
   const baseDepletion = { Q: 4.2, V: 6.8, T: 7.3, A: 3.1 }[aquifer];
-  const depletionRate = useGrace
-    ? +(baseDepletion + (Math.random() - 0.5) * 1.2).toFixed(1)
-    : null;
-
-  const baseDepths = { Q: 35, V: 120, T: 220, A: 380 };
-  const depth      = Math.round(
-    baseDepths[aquifer] + Math.round(Math.random() * 40) +
-    (depletionRate ? depletionRate * yearDelta : 0)
-  );
-  const depthMin   = Math.round(depth * 0.88);
-  const depthMax   = Math.round(depth * 1.15);
-
-  const yieldMap = {
-    Q: { val: '٢–٥',  label: 'منخفضة',        cost: '$8,000–$15,000' },
-    V: { val: '٥–١٢', label: 'متوسطة',         cost: '$18,000–$28,000' },
-    T: { val: '٨–٢٠', label: 'متوسطة–عالية',   cost: '$22,000–$38,000' },
-    A: { val: '٣–٨',  label: 'منخفضة–متوسطة',  cost: '$30,000–$50,000' },
+  const depletionRate = useGrace ? +(baseDepletion + (Math.random() - 0.5) * 1.2).toFixed(1) : null;
+  const baseDepths    = { Q: 35, V: 120, T: 220, A: 380 };
+  const depth         = Math.round(baseDepths[aquifer] + Math.round(Math.random() * 40) + (depletionRate ? depletionRate * yearDelta : 0));
+  const depthMin      = Math.round(depth * 0.88);
+  const depthMax      = Math.round(depth * 1.15);
+  const yieldMap      = {
+    Q: { val: '٢–٥',  label: 'منخفضة',       cost: '$8,000–$15,000'  },
+    V: { val: '٥–١٢', label: 'متوسطة',        cost: '$18,000–$28,000' },
+    T: { val: '٨–٢٠', label: 'متوسطة–عالية',  cost: '$22,000–$38,000' },
+    A: { val: '٣–٨',  label: 'منخفضة–متوسطة', cost: '$30,000–$50,000' },
   };
-
-  // Risk assessment
-  let risk, riskLevel;
-  if (northOfTawilah && aquifer === 'T' && useGeo) {
-    risk = '⚠️ تحذير: الطبقة التوائلية غائبةٌ شمال خط عرض 15.35° — تم التعديل تلقائياً';
-    riskLevel = 'high';
-  } else if (aquifer === 'A' && !nearFault) {
-    risk = '⚠️ تحذير: طبقة عمران الجيرية بعيدةٌ عن الصدوع — إنتاجيةٌ منخفضة محتملة';
-    riskLevel = 'med';
-  } else if (depletionRate && depletionRate > 7) {
-    risk = '🔴 معدل استنزافٍ مرتفع — يُستحسن التوسع نحو الجنوب';
-    riskLevel = 'med';
-  } else {
-    risk = '✅ الموقع ملائمٌ — لا قيود جيولوجية حرجة';
-    riskLevel = 'low';
-  }
-
-  // Formation evaluation (Archie)
-  const feData = useFE ? {
-    Sw:  +(0.55 + Math.random() * 0.25).toFixed(2),
-    phi: +(0.08 + Math.random() * 0.10).toFixed(2),
-    pay: Math.round(15 + Math.random() * 30) + ' م',
-    Rt:  Math.round(8  + Math.random() * 20) + ' Ω·m',
-  } : null;
-
-  // Drilling specs
-  const drillMethods = {
-    Q: 'حفر دوراني مباشر',
-    V: 'حفر هوائي بمطرقة (DTH)',
-    T: 'حفر دوراني بطين حفر',
-    A: 'حفر ماسي مع دعم أسمنتي',
-  };
-  const casingMap = {
-    Q: `سطحي حتى ٢٠م | منقّب ${Math.round(depthMin * 0.6)}–${depthMin}م`,
-    V: `سطحي حتى ٤٠م | مُبطّن ٤٠–${Math.round(depth * 0.5)}م | منقّب ${Math.round(depth * 0.5)}–${depth}م`,
-    T: `سطحي حتى ٦٠م | مُبطّن ٦٠–${Math.round(depth * 0.6)}م | منقّب ${Math.round(depth * 0.6)}–${depth}م`,
-    A: `سطحي حتى ٨٠م | مُبطّن كامل حتى ${depth}م`,
-  };
-
-  // GRACE time series
+  let risk = '✅ الموقع ملائمٌ — لا قيود جيولوجية حرجة', riskLevel = 'low';
+  if (northOfTawilah && aquifer === 'T' && useGeo) { risk = '⚠️ التوائلي غائب شمال 15.35°'; riskLevel = 'high'; }
+  else if (aquifer === 'A' && !nearFault)           { risk = '⚠️ عمران بعيد عن الصدوع';      riskLevel = 'med';  }
+  else if (depletionRate && depletionRate > 7)      { risk = '🔴 استنزاف مرتفع';              riskLevel = 'med';  }
+  const feData = useFE ? { Sw: +(0.55 + Math.random() * 0.25).toFixed(2), phi: +(0.08 + Math.random() * 0.10).toFixed(2), pay: Math.round(15 + Math.random() * 30) + ' م', Rt: Math.round(8 + Math.random() * 20) + ' Ω·m' } : null;
+  const drillMethods = { Q: 'حفر دوراني مباشر', V: 'حفر هوائي DTH', T: 'حفر دوراني بطين', A: 'حفر ماسي' };
+  const casingMap    = { Q: `سطحي ٢٠م | منقّب ${Math.round(depthMin*0.6)}–${depthMin}م`, V: `سطحي ٤٠م | مُبطّن ٤٠–${Math.round(depth*0.5)}م`, T: `سطحي ٦٠م | مُبطّن ٦٠–${Math.round(depth*0.6)}م`, A: `مُبطّن كامل حتى ${depth}م` };
   const graceYears = Array.from({ length: 24 }, (_, i) => 2003 + i);
-  const graceTWS   = graceYears.map(y => {
-    const trend = -(depletionRate ?? 5) * (y - 2003) * 0.12;
-    return +(trend + (Math.random() - 0.5) * 1.8).toFixed(2);
-  });
+  const graceTWS   = graceYears.map(y => +(-(depletionRate ?? 5) * (y - 2003) * 0.12 + (Math.random() - 0.5) * 1.8).toFixed(2));
 
-  return {
-    aquifer, confidence, depletionRate, depth, depthMin, depthMax,
-    yield: yieldMap[aquifer], risk, riskLevel, feData,
-    specs: {
-      method:   drillMethods[aquifer],
-      diameter: aquifer === 'Q' ? '٦ إنش' : '٨ إنش',
-      casing:   casingMap[aquifer],
-      pump:     `غاطس ${depth < 300 ? '١٥' : '٢٢'} كيلوواط`,
-      duration: `${Math.round(depth / 35) + 3}–${Math.round(depth / 28) + 5} أسابيع`,
-      cost:     yieldMap[aquifer].cost,
-    },
+  return { aquifer, confidence, depletionRate, depth, depthMin, depthMax, yield: yieldMap[aquifer], risk, riskLevel, feData,
+    specs: { method: drillMethods[aquifer], diameter: aquifer === 'Q' ? '٦ إنش' : '٨ إنش', casing: casingMap[aquifer], pump: `غاطس ${depth < 300 ? '١٥' : '٢٢'} كيلوواط`, duration: `${Math.round(depth/35)+3}–${Math.round(depth/28)+5} أسابيع`, cost: yieldMap[aquifer].cost },
     graceData: { years: graceYears, tws: graceTWS },
   };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+//  getAquiferData — الدالة الرئيسية (API أولاً، ثم محاكاة احتياطية)
+// ══════════════════════════════════════════════════════════════════════
+async function getAquiferData(lat, lon) {
+  const mobile   = AQ.Device.isMobile();
+  const sfx      = mobile ? 'M' : '';
+  const useGrace = document.getElementById('graceToggle' + sfx)?.checked ?? true;
+  const useGeo   = document.getElementById('geoToggle'   + sfx)?.checked ?? true;
+  const useFE    = document.getElementById('feToggle'    + sfx)?.checked ?? true;
+  const year     = parseInt(document.getElementById('yearInput' + sfx)?.value ?? '2026');
+
+  // ── محاولة استدعاء الـ API الحقيقي ──────────────────────────────
+  if (API_ONLINE) {
+    try {
+      const res = await fetch(`${API_URL}/analyze`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          latitude:  lat,
+          longitude: lon,
+          year,
+          use_grace: useGrace,
+          use_geo:   useGeo,
+          use_fe:    useFE,
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+
+      if (!res.ok) throw new Error(`API error: ${res.status}`);
+      const data = await res.json();
+      console.log('📡 نتيجة من Python API:', data);
+      return normalizeAPIResponse(data, lat, lon);
+
+    } catch (err) {
+      console.warn('⚠️  API فشل، التحويل للمحاكاة:', err.message);
+      API_ONLINE = false;
+    }
+  }
+
+  // ── المحاكاة الاحتياطية ───────────────────────────────────────
+  console.log('🔄 وضع المحاكاة (API غير متصل)');
+  return simulateLocally(lat, lon);
 }
 
 // ══════════════════════════════════════════════════════════════════════
